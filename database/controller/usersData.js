@@ -482,6 +482,44 @@ module.exports = async function (databaseType, userModel, api, fakeGraphql) {
         });
     }
 
+    async function addMoney(userID, money, query) {
+        return new Promise((resolve, reject) => {
+            taskQueue.push(async function () {
+                try {
+                    if (isNaN(userID)) {
+                        throw new CustomError({
+                            name: "INVALID_USER_ID",
+                            message: `The first argument (userID) must be a number, not ${typeof userID}`
+                        });
+                    }
+                    if (isNaN(money)) {
+                        throw new CustomError({
+                            name: "INVALID_MONEY",
+                            message: `The second argument (money) must be a number, not ${typeof money}`
+                        });
+                    }
+                    if (!global.db.allUserData.some(u => u.userID == userID))
+                        await create_(userID);
+                    const currentMoney = await get_(userID, "money");
+                    const newMoney = currentMoney + money;
+                    const userData = await save(userID, newMoney, "update", "money");
+                    if (query)
+                        if (typeof query !== "string")
+                            throw new CustomError({
+                                name: "INVALID_QUERY",
+                                message: `The third argument (query) must be a string, not ${typeof query}`
+                            });
+                        else
+                            return resolve(_.cloneDeep(fakeGraphql(query, userData)));
+
+                    return resolve(_.cloneDeep(userData));
+                } catch (err) {
+                    reject(err);
+                }
+            });
+        });
+    }
+
     async function subtractMoney(userID, money, query) {
         return new Promise((resolve, reject) => {
             taskQueue.push(async function () {
